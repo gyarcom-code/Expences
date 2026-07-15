@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Расходы по категориям</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
+  #years { margin-bottom: 20px; }
+  #years button { margin: 2px; padding: 6px 12px; cursor: pointer; }
+  #years button.active { background: #333; color: #fff; }
+  #status { color: #666; }
+  #chart-wrap { overflow-x: auto; }
+  #chart-wrap canvas { height: 500px !important; }
+</style>
+</head>
+<body>
+
+<h1>Расходы по категориям</h1>
+<div id="status">Загрузка данных...</div>
+<div id="years"></div>
+<div id="chart-wrap"><canvas id="chart"></canvas></div>
+
+<script>
+const SHEET_ID = '1bfJk8VUQPg-GrMkj2qiXoxcs0RxJPmIBN9ujmXFkXMQ';
+const API_KEY = 'AIzaSyBSzdf9aK6jqDZJnX-6br6pBw2chqSwC-U';
+const SHEET_NAME = 'Ответы на форму';
+const RANGE = `'${SHEET_NAME}'!A:C`;
+
+let chart = null;
+let rowsByYear = {};
+
+async function loadData() {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(RANGE)}?key=${API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    document.getElementById('status').textContent = 'Ошибка загрузки данных: ' + res.status;
+    return;
+  }
+  const data = await res.json();
+  const rows = data.values || [];
+
+  rowsByYear = {};
+  // rows[0] is header, skip it
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length < 3) continue;
+    const [timestamp, category, amountRaw] = row;
+    if (!timestamp || !category) continue;
+
+    const match = String(timestamp).match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+    if (!match) continue;
+    const year = parseInt(match[3], 10);
+
+    const amount = parseFloat(String(amountRaw).replace(',', '.'));
+    if (isNaN(amount)) continue;
+
+    if (!rowsByYear[year]) rowsByYear[year] = [];
+    rowsByYear[year].push({ category, amount });
+  }
+
+  const years = Object.keys(rowsByYear).sort((a, b) => b - a);
+  if (years.length === 0) {
+    document.getElementById('status').textContent = 'Нет данных для отображения.';
+    return;
+  }
+
+  document.getElementById('status').textContent = '';
+  renderYearButtons(years);
+  showYear(years[0]);
+}
+
+function renderYearButtons(years) {
+  const container = document.getElementById('years');
+  container.innerHTML = '';
+  years.forEach(year => {
+    const btn = document.createElement('button');
+    btn.textContent = year;
+    btn.onclick = () => showYear(year);
+    btn.dataset.year = year;
+    container.appendChild(btn);
+  });
+}
+
+function showYear(year) {
+  document.querySelectorAll('#years button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.year == year);
+  });
+
+  const totals = {};
+  for (const { category, amount } of rowsByYear[year]) {
+    totals[category] = (totals[category] || 0) + amount;
+  }
+
+  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  const labels = sorted.map(([category]) => category);
+  const values = sorted.map(([, total]) => total);
+
+  const canvas = document.getElementById('chart');
+  canvas.width = Math.max(labels.length * 70, 600);
+
+  if (chart) chart.destroy();
+  chart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: `Расходы за ${year}`, data: values, backgroundColor: '#4a90d9' }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true },
+        x: { ticks: { autoSkip: false, maxRotation: 90, minRotation: 45 } }
+      }
+    }
+  });
+}
+
+loadData().catch(err => {
+  document.getElementById('status').textContent = 'Ошибка: ' + err.message;
+});
+</script>
+
+</body>
+</html>
