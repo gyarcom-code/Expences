@@ -12,6 +12,10 @@
   #status { color: #666; }
   #chart-wrap { overflow-x: auto; }
   #chart-wrap canvas { height: 500px !important; }
+  #big-table { margin-top: 30px; border-collapse: collapse; width: 100%; }
+  #big-table th, #big-table td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 14px; }
+  #big-table th { background: #f2f2f2; }
+  h2 { margin-top: 30px; }
 </style>
 </head>
 <body>
@@ -21,11 +25,20 @@
 <div id="years"></div>
 <div id="chart-wrap"><canvas id="chart"></canvas></div>
 
+<h2>Крупные траты (больше 8000)</h2>
+<table id="big-table">
+  <thead>
+    <tr><th>Дата</th><th>Категория</th><th>Сумма</th><th>Комментарий</th></tr>
+  </thead>
+  <tbody id="big-table-body"></tbody>
+</table>
+
 <script>
 const SHEET_ID = '1bfJk8VUQPg-GrMkj2qiXoxcs0RxJPmIBN9ujmXFkXMQ';
 const API_KEY = 'AIzaSyBSzdf9aK6jqDZJnX-6br6pBw2chqSwC-U';
 const SHEET_NAME = 'Ответы на форму';
-const RANGE = `'${SHEET_NAME}'!A:C`;
+const RANGE = `'${SHEET_NAME}'!A:D`;
+const BIG_AMOUNT_THRESHOLD = 8000;
 
 let chart = null;
 let rowsByYear = {};
@@ -45,18 +58,19 @@ async function loadData() {
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length < 3) continue;
-    const [timestamp, category, amountRaw] = row;
+    const [timestamp, category, amountRaw, comment] = row;
     if (!timestamp || !category) continue;
 
     const match = String(timestamp).match(/^(\d{2})\.(\d{2})\.(\d{4})/);
     if (!match) continue;
     const year = parseInt(match[3], 10);
+    const dateStr = `${match[1]}.${match[2]}.${match[3]}`;
 
     const amount = parseFloat(String(amountRaw).replace(',', '.'));
     if (isNaN(amount)) continue;
 
     if (!rowsByYear[year]) rowsByYear[year] = [];
-    rowsByYear[year].push({ category, amount });
+    rowsByYear[year].push({ date: dateStr, category, amount, comment: comment || '' });
   }
 
   const years = Object.keys(rowsByYear).sort((a, b) => b - a);
@@ -115,6 +129,27 @@ function showYear(year) {
       }
     }
   });
+
+  renderBigTable(year);
+}
+
+function renderBigTable(year) {
+  const tbody = document.getElementById('big-table-body');
+  tbody.innerHTML = '';
+
+  const bigRows = rowsByYear[year]
+    .filter(r => r.amount > BIG_AMOUNT_THRESHOLD)
+    .sort((a, b) => b.amount - a.amount);
+
+  for (const { date, category, amount, comment } of bigRows) {
+    const tr = document.createElement('tr');
+    [date, category, amount, comment].forEach(value => {
+      const td = document.createElement('td');
+      td.textContent = value;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
 }
 
 loadData().catch(err => {
