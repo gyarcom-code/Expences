@@ -1,15 +1,21 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>Расходы по категориям</title>
+<title>Витрати за категоріями</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
-  #years { margin-bottom: 20px; }
-  #years button { margin: 2px; padding: 6px 12px; cursor: pointer; }
-  #years button.active { background: #333; color: #fff; }
+  nav { margin-bottom: 15px; }
+  nav a { margin-right: 15px; }
+  #filters-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
+  #years, #months { margin-bottom: 8px; }
+  #years button, #months button { margin: 2px; padding: 6px 12px; cursor: pointer; }
+  #years button.active, #months button.active { background: #333; color: #fff; }
   #status { color: #666; }
+  #total-widget { border: 1px solid #4a90d9; border-radius: 6px; padding: 10px 18px; cursor: pointer; text-align: center; white-space: nowrap; }
+  #total-widget:hover { background: #f0f6fc; }
+  #total-widget .amount { font-size: 20px; font-weight: bold; color: #4a90d9; }
   #chart-wrap { overflow-x: auto; }
   #chart-wrap canvas { height: 500px !important; }
   #big-table { margin-top: 30px; border-collapse: collapse; width: 100%; }
@@ -20,68 +26,59 @@
 </head>
 <body>
 
-<h1>Расходы по категориям</h1>
-<div id="status">Загрузка данных...</div>
-<div id="years"></div>
+<h1>Витрати за категоріями</h1>
+<nav>
+  <a href="monthly-trends.html">Динаміка за місяцями</a>
+  <a href="category-trends.html">За категоріями</a>
+</nav>
+<div id="status">Завантаження даних...</div>
+
+<div id="filters-row">
+  <div>
+    <div id="years"></div>
+    <div id="months"></div>
+  </div>
+  <div id="total-widget" title="Перейти до динаміки за місяцями">
+    <div>Всього за <span id="total-period"></span></div>
+    <div class="amount"><span id="total-amount"></span></div>
+  </div>
+</div>
+
 <div id="chart-wrap"><canvas id="chart"></canvas></div>
 
-<h2>Крупные траты (больше 8000)</h2>
+<h2>Великі витрати (більше 8000)</h2>
 <table id="big-table">
   <thead>
-    <tr><th>Дата</th><th>Категория</th><th>Сумма</th><th>Комментарий</th></tr>
+    <tr><th>Дата</th><th>Категорія</th><th>Сума</th><th>Коментар</th></tr>
   </thead>
   <tbody id="big-table-body"></tbody>
 </table>
 
+<script src="data.js"></script>
 <script>
-const SHEET_ID = '1bfJk8VUQPg-GrMkj2qiXoxcs0RxJPmIBN9ujmXFkXMQ';
-const API_KEY = 'AIzaSyBSzdf9aK6jqDZJnX-6br6pBw2chqSwC-U';
-const SHEET_NAME = 'Ответы на форму';
-const RANGE = `'${SHEET_NAME}'!A:D`;
 const BIG_AMOUNT_THRESHOLD = 8000;
 
+let allRows = [];
+let currentYear = null;
+let currentMonth = null;
 let chart = null;
-let rowsByYear = {};
 
-async function loadData() {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(RANGE)}?key=${API_KEY}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    document.getElementById('status').textContent = 'Ошибка загрузки данных: ' + res.status;
+async function init() {
+  try {
+    allRows = await fetchExpenseRows();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Помилка: ' + err.message;
     return;
   }
-  const data = await res.json();
-  const rows = data.values || [];
-
-  rowsByYear = {};
-  // rows[0] is header, skip it
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length < 3) continue;
-    const [timestamp, category, amountRaw, comment] = row;
-    if (!timestamp || !category) continue;
-
-    const match = String(timestamp).match(/^(\d{2})\.(\d{2})\.(\d{4})/);
-    if (!match) continue;
-    const year = parseInt(match[3], 10);
-    const dateStr = `${match[1]}.${match[2]}.${match[3]}`;
-
-    const amount = parseFloat(String(amountRaw).replace(',', '.'));
-    if (isNaN(amount)) continue;
-
-    if (!rowsByYear[year]) rowsByYear[year] = [];
-    rowsByYear[year].push({ date: dateStr, category, amount, comment: comment || '' });
-  }
-
-  const years = Object.keys(rowsByYear).sort((a, b) => b - a);
-  if (years.length === 0) {
-    document.getElementById('status').textContent = 'Нет данных для отображения.';
+  if (allRows.length === 0) {
+    document.getElementById('status').textContent = 'Немає даних для відображення.';
     return;
   }
-
   document.getElementById('status').textContent = '';
+
+  const years = [...new Set(allRows.map(r => r.year))].sort((a, b) => b - a);
   renderYearButtons(years);
-  showYear(years[0]);
+  selectYear(years[0]);
 }
 
 function renderYearButtons(years) {
@@ -90,22 +87,66 @@ function renderYearButtons(years) {
   years.forEach(year => {
     const btn = document.createElement('button');
     btn.textContent = year;
-    btn.onclick = () => showYear(year);
     btn.dataset.year = year;
+    btn.onclick = () => selectYear(year);
     container.appendChild(btn);
   });
 }
 
-function showYear(year) {
+function selectYear(year) {
+  currentYear = year;
+  currentMonth = null;
   document.querySelectorAll('#years button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.year == year);
+    btn.classList.toggle('active', Number(btn.dataset.year) === year);
+  });
+  renderMonthButtons(year);
+  applyFilters();
+}
+
+function renderMonthButtons(year) {
+  const container = document.getElementById('months');
+  container.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.textContent = 'Усі місяці';
+  allBtn.onclick = () => selectMonth(null);
+  container.appendChild(allBtn);
+
+  const months = [...new Set(allRows.filter(r => r.year === year).map(r => r.month))].sort((a, b) => a - b);
+  months.forEach(month => {
+    const btn = document.createElement('button');
+    btn.textContent = MONTH_NAMES[month - 1];
+    btn.dataset.month = month;
+    btn.onclick = () => selectMonth(month);
+    container.appendChild(btn);
   });
 
+  highlightMonthButtons();
+}
+
+function highlightMonthButtons() {
+  document.querySelectorAll('#months button').forEach(btn => {
+    const isAllButton = !btn.dataset.month;
+    const active = currentMonth === null ? isAllButton : Number(btn.dataset.month) === currentMonth;
+    btn.classList.toggle('active', active);
+  });
+}
+
+function selectMonth(month) {
+  currentMonth = month;
+  applyFilters();
+}
+
+function applyFilters() {
+  highlightMonthButtons();
+
+  const filtered = allRows.filter(r => r.year === currentYear && (currentMonth === null || r.month === currentMonth));
+  const periodLabel = currentMonth ? `${MONTH_NAMES[currentMonth - 1]} ${currentYear}` : `${currentYear}`;
+
   const totals = {};
-  for (const { category, amount } of rowsByYear[year]) {
+  for (const { category, amount } of filtered) {
     totals[category] = (totals[category] || 0) + amount;
   }
-
   const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
   const labels = sorted.map(([category]) => category);
   const values = sorted.map(([, total]) => total);
@@ -118,32 +159,46 @@ function showYear(year) {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ label: `Расходы за ${year}`, data: values, backgroundColor: '#4a90d9' }]
+      datasets: [{ label: `Витрати за ${periodLabel}`, data: values, backgroundColor: '#4a90d9' }]
     },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => formatCurrency(ctx.parsed.y) } }
+      },
       scales: {
-        y: { beginAtZero: true },
+        y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } },
         x: { ticks: { autoSkip: false, maxRotation: 90, minRotation: 45 } }
+      },
+      onHover: (evt, elements) => {
+        evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+      onClick: (evt, elements, activeChart) => {
+        const points = activeChart.getElementsAtEventForMode(evt, 'index', { intersect: false }, true);
+        if (points.length) {
+          const category = labels[points[0].index];
+          window.location.href = `category-trends.html?category=${encodeURIComponent(category)}`;
+        }
       }
     }
   });
 
-  renderBigTable(year);
+  renderBigTable(filtered);
+  renderTotalWidget(filtered, periodLabel);
 }
 
-function renderBigTable(year) {
+function renderBigTable(filtered) {
   const tbody = document.getElementById('big-table-body');
   tbody.innerHTML = '';
 
-  const bigRows = rowsByYear[year]
+  const bigRows = filtered
     .filter(r => r.amount > BIG_AMOUNT_THRESHOLD)
     .sort((a, b) => b.amount - a.amount);
 
   for (const { date, category, amount, comment } of bigRows) {
     const tr = document.createElement('tr');
-    [date, category, amount, comment].forEach(value => {
+    [date, category, formatCurrency(amount), comment].forEach(value => {
       const td = document.createElement('td');
       td.textContent = value;
       tr.appendChild(td);
@@ -152,7 +207,16 @@ function renderBigTable(year) {
   }
 }
 
-loadData().catch(err => {
+function renderTotalWidget(filtered, periodLabel) {
+  const total = filtered.reduce((sum, r) => sum + r.amount, 0);
+  document.getElementById('total-amount').textContent = formatCurrency(total);
+  document.getElementById('total-period').textContent = periodLabel;
+  document.getElementById('total-widget').onclick = () => {
+    window.location.href = `monthly-trends.html?year=${currentYear}`;
+  };
+}
+
+init().catch(err => {
   document.getElementById('status').textContent = 'Ошибка: ' + err.message;
 });
 </script>

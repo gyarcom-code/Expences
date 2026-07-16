@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Динаміка за місяцями</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
+  nav { margin-bottom: 15px; }
+  #years-checkboxes { margin-bottom: 20px; }
+  #years-checkboxes label { margin-right: 15px; cursor: pointer; }
+  #status { color: #666; }
+  #chart-wrap canvas { height: 500px !important; }
+</style>
+</head>
+<body>
+
+<h1>Динаміка за місяцями</h1>
+<nav><a href="index.html">← На головну</a></nav>
+<div id="status">Завантаження даних...</div>
+
+<div id="years-checkboxes"></div>
+
+<div id="chart-wrap"><canvas id="chart"></canvas></div>
+
+<script src="data.js"></script>
+<script>
+const COLORS = ['#4a90d9', '#e05656', '#4caf50', '#f0ad4e', '#9b59b6', '#16a2b8', '#e67e22', '#795548'];
+
+let allRows = [];
+let chart = null;
+
+function getQueryYear() {
+  const params = new URLSearchParams(window.location.search);
+  const year = parseInt(params.get('year'), 10);
+  return isNaN(year) ? null : year;
+}
+
+async function init() {
+  try {
+    allRows = await fetchExpenseRows();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Помилка: ' + err.message;
+    return;
+  }
+  if (allRows.length === 0) {
+    document.getElementById('status').textContent = 'Немає даних для відображення.';
+    return;
+  }
+  document.getElementById('status').textContent = '';
+
+  const years = [...new Set(allRows.map(r => r.year))].sort((a, b) => b - a);
+  const preselected = getQueryYear();
+  renderYearCheckboxes(years, preselected !== null && years.includes(preselected) ? preselected : years[0]);
+  renderChart();
+}
+
+function renderYearCheckboxes(years, defaultYear) {
+  const container = document.getElementById('years-checkboxes');
+  container.innerHTML = '';
+  years.forEach(year => {
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = year;
+    checkbox.checked = year === defaultYear;
+    checkbox.onchange = renderChart;
+    label.appendChild(checkbox);
+    label.append(' ' + year);
+    container.appendChild(label);
+  });
+}
+
+function getCheckedYears() {
+  return [...document.querySelectorAll('#years-checkboxes input:checked')].map(cb => parseInt(cb.value, 10));
+}
+
+function renderChart() {
+  const checkedYears = getCheckedYears();
+
+  const datasets = checkedYears.map((year, i) => {
+    const monthlyTotals = new Array(12).fill(0);
+    for (const r of allRows) {
+      if (r.year === year) monthlyTotals[r.month - 1] += r.amount;
+    }
+    const color = COLORS[i % COLORS.length];
+    return {
+      label: String(year),
+      data: monthlyTotals,
+      borderColor: color,
+      backgroundColor: color,
+      fill: false,
+      tension: 0.1
+    };
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: { labels: MONTH_NAMES, datasets },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` } }
+      },
+      scales: { y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } } }
+    }
+  });
+}
+
+init().catch(err => {
+  document.getElementById('status').textContent = 'Ошибка: ' + err.message;
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Аналітика за категоріями</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
+  nav { margin-bottom: 15px; }
+  #categories { margin-bottom: 15px; }
+  #categories button { margin: 2px; padding: 6px 12px; cursor: pointer; }
+  #categories button.active { background: #333; color: #fff; }
+  #years-checkboxes { margin-bottom: 20px; }
+  #years-checkboxes label { margin-right: 15px; cursor: pointer; }
+  #status { color: #666; }
+  #chart-wrap canvas { height: 500px !important; }
+</style>
+</head>
+<body>
+
+<h1>Аналітика за категоріями</h1>
+<nav><a href="index.html">← На головну</a></nav>
+<div id="status">Завантаження даних...</div>
+
+<div id="categories"></div>
+<div id="years-checkboxes"></div>
+
+<div id="chart-wrap"><canvas id="chart"></canvas></div>
+
+<script src="data.js"></script>
+<script>
+const COLORS = ['#4a90d9', '#e05656', '#4caf50', '#f0ad4e', '#9b59b6', '#16a2b8', '#e67e22', '#795548'];
+
+let allRows = [];
+let currentCategory = null;
+
+function getQueryCategory() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('category');
+}
+
+async function init() {
+  try {
+    allRows = await fetchExpenseRows();
+  } catch (err) {
+    document.getElementById('status').textContent = 'Помилка: ' + err.message;
+    return;
+  }
+  if (allRows.length === 0) {
+    document.getElementById('status').textContent = 'Немає даних для відображення.';
+    return;
+  }
+  document.getElementById('status').textContent = '';
+
+  const totalsByCategory = {};
+  for (const r of allRows) {
+    totalsByCategory[r.category] = (totalsByCategory[r.category] || 0) + r.amount;
+  }
+  const categories = Object.keys(totalsByCategory).sort((a, b) => totalsByCategory[b] - totalsByCategory[a]);
+
+  const years = [...new Set(allRows.map(r => r.year))].sort((a, b) => b - a);
+
+  renderCategoryButtons(categories);
+  renderYearCheckboxes(years, years[0]);
+
+  const requestedCategory = getQueryCategory();
+  selectCategory(categories.includes(requestedCategory) ? requestedCategory : categories[0]);
+}
+
+function renderCategoryButtons(categories) {
+  const container = document.getElementById('categories');
+  container.innerHTML = '';
+  categories.forEach(category => {
+    const btn = document.createElement('button');
+    btn.textContent = category;
+    btn.onclick = () => selectCategory(category);
+    container.appendChild(btn);
+  });
+}
+
+function selectCategory(category) {
+  currentCategory = category;
+  document.querySelectorAll('#categories button').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === category);
+  });
+  renderChart();
+}
+
+function renderYearCheckboxes(years, defaultYear) {
+  const container = document.getElementById('years-checkboxes');
+  container.innerHTML = '';
+  years.forEach(year => {
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = year;
+    checkbox.checked = year === defaultYear;
+    checkbox.onchange = renderChart;
+    label.appendChild(checkbox);
+    label.append(' ' + year);
+    container.appendChild(label);
+  });
+}
+
+function getCheckedYears() {
+  return [...document.querySelectorAll('#years-checkboxes input:checked')].map(cb => parseInt(cb.value, 10));
+}
+
+let chart = null;
+
+function renderChart() {
+  const checkedYears = getCheckedYears();
+
+  const datasets = checkedYears.map((year, i) => {
+    const monthlyTotals = new Array(12).fill(0);
+    for (const r of allRows) {
+      if (r.year === year && r.category === currentCategory) monthlyTotals[r.month - 1] += r.amount;
+    }
+    const color = COLORS[i % COLORS.length];
+    return {
+      label: String(year),
+      data: monthlyTotals,
+      borderColor: color,
+      backgroundColor: color,
+      fill: false,
+      tension: 0.1
+    };
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: { labels: MONTH_NAMES, datasets },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        title: { display: true, text: currentCategory },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` } }
+      },
+      scales: { y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } } }
+    }
+  });
+}
+
+init().catch(err => {
+  document.getElementById('status').textContent = 'Ошибка: ' + err.message;
+});
+</script>
+
+</body>
+</html>
