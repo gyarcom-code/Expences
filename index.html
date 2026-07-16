@@ -9,13 +9,14 @@
   nav { margin-bottom: 15px; }
   nav a { margin-right: 15px; }
   #filters-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
+  #filters-row > div:first-child { flex: 1 1 auto; min-width: 0; }
   #years, #months { margin-bottom: 8px; }
   #years button, #months button { margin: 2px; padding: 6px 12px; cursor: pointer; }
   #years button.active, #months button.active { background: #333; color: #fff; }
   #status { color: #666; }
-  #total-widget { border: 1px solid #4a90d9; border-radius: 6px; padding: 10px 18px; cursor: pointer; text-align: center; white-space: nowrap; }
+  #total-widget { flex: 0 0 auto; min-width: 220px; border: 1px solid #4a90d9; border-radius: 6px; padding: 10px 18px; cursor: pointer; text-align: center; white-space: nowrap; }
   #total-widget:hover { background: #f0f6fc; }
-  #total-widget .amount { font-size: 20px; font-weight: bold; color: #4a90d9; }
+  #total-widget .amount { font-size: 20px; font-weight: bold; color: #4a90d9; font-variant-numeric: tabular-nums; }
   #chart-wrap { overflow-x: auto; }
   #chart-wrap canvas { height: 500px !important; }
   #big-table { margin-top: 30px; border-collapse: collapse; width: 100%; }

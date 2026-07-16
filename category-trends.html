@@ -13,6 +13,10 @@
   #years-checkboxes { margin-bottom: 20px; }
   #years-checkboxes label { margin-right: 15px; cursor: pointer; }
   #status { color: #666; }
+  #averages-widget { margin-bottom: 20px; }
+  #averages-widget > div { margin-bottom: 6px; }
+  #averages-widget .avg-label { color: #666; margin-right: 8px; }
+  .avg-chip { display: inline-block; border: 1px solid; border-radius: 12px; padding: 4px 12px; margin-right: 8px; font-weight: bold; font-size: 14px; }
   #chart-wrap canvas { height: 500px !important; }
 </style>
 </head>
@@ -24,10 +28,12 @@
 
 <div id="categories"></div>
 <div id="years-checkboxes"></div>
+<div id="averages-widget"></div>
 
 <div id="chart-wrap"><canvas id="chart"></canvas></div>
 
 <script src="data.js"></script>
+<script src="settings.js"></script>
 <script>
 const COLORS = ['#4a90d9', '#e05656', '#4caf50', '#f0ad4e', '#9b59b6', '#16a2b8', '#e67e22', '#795548'];
 
@@ -110,6 +116,7 @@ let chart = null;
 
 function renderChart() {
   const checkedYears = getCheckedYears();
+  const yearAverages = [];
 
   const datasets = checkedYears.map((year, i) => {
     const monthlyTotals = new Array(12).fill(0);
@@ -117,15 +124,23 @@ function renderChart() {
       if (r.year === year && r.category === currentCategory) monthlyTotals[r.month - 1] += r.amount;
     }
     const color = COLORS[i % COLORS.length];
+    const total = monthlyTotals.reduce((sum, v) => sum + v, 0);
+    const average = computeMonthlyAverage(monthlyTotals);
+    yearAverages.push({ year, total, average, color });
+    const pointColors = monthlyTotals.map(v => getOveragePointColor(v, average, color));
     return {
       label: String(year),
       data: monthlyTotals,
       borderColor: color,
       backgroundColor: color,
+      pointBackgroundColor: pointColors,
+      pointBorderColor: pointColors,
       fill: false,
       tension: 0.1
     };
   });
+
+  renderAveragesWidget(yearAverages);
 
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('chart'), {
@@ -142,8 +157,43 @@ function renderChart() {
   });
 }
 
+function renderAveragesWidget(yearAverages) {
+  const container = document.getElementById('averages-widget');
+  container.innerHTML = '';
+
+  const totalRow = document.createElement('div');
+  const totalLabel = document.createElement('span');
+  totalLabel.className = 'avg-label';
+  totalLabel.textContent = 'Сума за рік:';
+  totalRow.appendChild(totalLabel);
+  yearAverages.forEach(({ year, total, color }) => {
+    const chip = document.createElement('span');
+    chip.className = 'avg-chip';
+    chip.style.borderColor = color;
+    chip.style.color = color;
+    chip.textContent = `${year}: ${formatCurrency(total)}`;
+    totalRow.appendChild(chip);
+  });
+  container.appendChild(totalRow);
+
+  const avgRow = document.createElement('div');
+  const avgLabel = document.createElement('span');
+  avgLabel.className = 'avg-label';
+  avgLabel.textContent = 'Середнє за місяць:';
+  avgRow.appendChild(avgLabel);
+  yearAverages.forEach(({ year, average, color }) => {
+    const chip = document.createElement('span');
+    chip.className = 'avg-chip';
+    chip.style.borderColor = color;
+    chip.style.color = color;
+    chip.textContent = `${year}: ${formatCurrency(average)}`;
+    avgRow.appendChild(chip);
+  });
+  container.appendChild(avgRow);
+}
+
 init().catch(err => {
-  document.getElementById('status').textContent = 'Ошибка: ' + err.message;
+  document.getElementById('status').textContent = 'Помилка: ' + err.message;
 });
 </script>
 
