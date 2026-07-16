@@ -57,7 +57,7 @@
     user-select: none;
   }
 
-  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
   .tabs a {
     padding: 10px 14px;
     color: var(--text-secondary);
@@ -129,7 +129,7 @@
   #big-table tbody tr:hover { background: var(--page-bg); }
   .cat-cell { display: flex; align-items: center; gap: 8px; }
 
-  .threshold-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .threshold-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
   .threshold-row label { font-size: 13px; color: var(--text-secondary); }
   .threshold-row input {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
