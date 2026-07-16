@@ -2,35 +2,162 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Витрати за категоріями</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
-  nav { margin-bottom: 15px; }
-  nav a { margin-right: 15px; }
-  #filters-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
-  #filters-row > div:first-child { flex: 1 1 auto; min-width: 0; }
-  #years, #months { margin-bottom: 8px; }
-  #years button, #months button { margin: 2px; padding: 6px 12px; cursor: pointer; }
-  #years button.active, #months button.active { background: #333; color: #fff; }
-  #status { color: #666; }
-  #total-widget { flex: 0 0 auto; min-width: 220px; border: 1px solid #4a90d9; border-radius: 6px; padding: 10px 18px; cursor: pointer; text-align: center; white-space: nowrap; }
-  #total-widget:hover { background: #f0f6fc; }
-  #total-widget .amount { font-size: 20px; font-weight: bold; color: #4a90d9; font-variant-numeric: tabular-nums; }
-  #chart-wrap { overflow-x: auto; }
-  #chart-wrap canvas { height: 500px !important; }
-  #big-table { margin-top: 30px; border-collapse: collapse; width: 100%; }
-  #big-table th, #big-table td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 14px; }
-  #big-table th { background: #f2f2f2; }
-  h2 { margin-top: 30px; }
+  :root {
+    color-scheme: light dark;
+    --page-bg: #f4f5f3;
+    --surface: #ffffff;
+    --text-primary: #12181a;
+    --text-secondary: #5b6560;
+    --border: rgba(18, 24, 26, .10);
+    --accent: #0f6e63;
+    --accent-contrast: #ffffff;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page-bg: #14171a;
+      --surface: #1c2024;
+      --text-primary: #f2f4f3;
+      --text-secondary: #9aa39d;
+      --border: rgba(255, 255, 255, .10);
+      --accent: #3ab6a3;
+      --accent-contrast: #14171a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    background: var(--page-bg);
+    color: var(--text-primary);
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
+  h2 { font-size: 17px; font-weight: 600; margin: 36px 0 12px; }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+    color: var(--text-secondary);
+    user-select: none;
+  }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .tabs a {
+    padding: 10px 14px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tabs a:hover { color: var(--text-primary); }
+  .tabs a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  #status { color: var(--text-secondary); font-size: 14px; }
+
+  #filters-row { display: grid; grid-template-columns: 1fr 220px; align-items: start; gap: 20px; margin-bottom: 24px; }
+  #filters-row > div:first-child { min-width: 0; }
+  #years { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  #months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: min(360px, 100%); }
+  #months button.all-months { grid-column: 1 / -1; }
+  #months button:disabled {
+    cursor: not-allowed;
+    color: var(--text-secondary);
+    background: transparent;
+    border-color: var(--border);
+    opacity: .45;
+  }
+  #months button:disabled:hover { border-color: var(--border); }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  }
+  button:hover { border-color: var(--accent); }
+  button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+  }
+
+  .widgets-col { display: flex; flex-direction: column; gap: 12px; }
+
+  #total-widget, #avg-widget {
+    text-align: center;
+    white-space: nowrap;
+  }
+  #total-widget { cursor: pointer; transition: border-color .15s ease; }
+  #total-widget:hover { border-color: var(--accent); }
+  #total-widget .label, #avg-widget .label { color: var(--text-secondary); font-size: 13px; }
+  #total-widget .amount, #avg-widget .amount { display: block; margin-top: 4px; font-size: 22px; font-weight: 600; color: var(--accent); }
+
+  #chart-wrap.card { overflow-x: auto; padding: 16px; }
+  #chart-wrap canvas { height: 460px !important; }
+
+  .table-wrap { overflow-x: auto; }
+  #big-table { border-collapse: collapse; width: 100%; min-width: 480px; font-size: 13px; }
+  #big-table th, #big-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  #big-table th { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .02em; }
+  #big-table td:nth-child(3) { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  #big-table tbody tr:hover { background: var(--page-bg); }
+  .cat-cell { display: flex; align-items: center; gap: 8px; }
+
+  .threshold-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .threshold-row label { font-size: 13px; color: var(--text-secondary); }
+  .threshold-row input {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    width: 110px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
+  }
+  .threshold-row input:focus { outline: none; border-color: var(--accent); }
+
+  @media (max-width: 640px) {
+    body { padding: 16px 12px 40px; }
+    #filters-row { grid-template-columns: 1fr; }
+    #total-widget { width: 100%; }
+  }
 </style>
 </head>
 <body>
 
 <h1>Витрати за категоріями</h1>
-<nav>
-  <a href="monthly-trends.html">Динаміка за місяцями</a>
-  <a href="category-trends.html">За категоріями</a>
+<nav class="tabs">
+  <a href="index.html" class="active">Головна</a>
+  <a href="monthly-trends.html">Динаміка</a>
+  <a href="category-trends.html">Категорії</a>
 </nav>
 <div id="status">Завантаження даних...</div>
 
@@ -39,27 +166,43 @@
     <div id="years"></div>
     <div id="months"></div>
   </div>
-  <div id="total-widget" title="Перейти до динаміки за місяцями">
-    <div>Всього за <span id="total-period"></span></div>
-    <div class="amount"><span id="total-amount"></span></div>
+  <div class="widgets-col">
+    <div id="total-widget" class="card" title="Перейти до динаміки за місяцями">
+      <div class="label">Всього за <span id="total-period"></span></div>
+      <span class="amount mono" id="total-amount"></span>
+    </div>
+    <div id="avg-widget" class="card">
+      <div class="label">Середнє за місяць</div>
+      <span class="amount mono" id="avg-amount"></span>
+    </div>
   </div>
 </div>
 
-<div id="chart-wrap"><canvas id="chart"></canvas></div>
+<div id="chart-wrap" class="card"><canvas id="chart"></canvas></div>
 
-<h2>Великі витрати (більше 8000)</h2>
-<table id="big-table">
-  <thead>
-    <tr><th>Дата</th><th>Категорія</th><th>Сума</th><th>Коментар</th></tr>
-  </thead>
-  <tbody id="big-table-body"></tbody>
-</table>
+<h2>Великі витрати</h2>
+<div class="threshold-row">
+  <label for="threshold-input">Поріг (більше, ₴):</label>
+  <input type="number" id="threshold-input" value="8000" min="0" step="100">
+  <button id="threshold-apply">Застосувати</button>
+</div>
+<div class="table-wrap card">
+  <table id="big-table">
+    <thead>
+      <tr><th>Дата</th><th>Категорія</th><th>Сума</th><th>Коментар</th></tr>
+    </thead>
+    <tbody id="big-table-body"></tbody>
+  </table>
+</div>
 
 <script src="data.js"></script>
+<script src="settings.js"></script>
 <script>
-const BIG_AMOUNT_THRESHOLD = 8000;
+let bigAmountThreshold = 8000;
+const BAR_COLOR = isDarkMode() ? THEME_COLORS.accent.dark : THEME_COLORS.accent.light;
 
 let allRows = [];
+let currentFiltered = [];
 let currentYear = null;
 let currentMonth = null;
 let chart = null;
@@ -108,19 +251,23 @@ function renderMonthButtons(year) {
   const container = document.getElementById('months');
   container.innerHTML = '';
 
+  const monthsWithData = new Set(allRows.filter(r => r.year === year).map(r => r.month));
+
   const allBtn = document.createElement('button');
-  allBtn.textContent = 'Усі місяці';
+  allBtn.className = 'all-months';
+  allBtn.textContent = 'Всі місяці';
+  allBtn.disabled = monthsWithData.size === 0;
   allBtn.onclick = () => selectMonth(null);
   container.appendChild(allBtn);
 
-  const months = [...new Set(allRows.filter(r => r.year === year).map(r => r.month))].sort((a, b) => a - b);
-  months.forEach(month => {
+  for (let month = 1; month <= 12; month++) {
     const btn = document.createElement('button');
     btn.textContent = MONTH_NAMES[month - 1];
     btn.dataset.month = month;
+    btn.disabled = !monthsWithData.has(month);
     btn.onclick = () => selectMonth(month);
     container.appendChild(btn);
-  });
+  }
 
   highlightMonthButtons();
 }
@@ -160,7 +307,7 @@ function applyFilters() {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ label: `Витрати за ${periodLabel}`, data: values, backgroundColor: '#4a90d9' }]
+      datasets: [{ label: `Витрати за ${periodLabel}`, data: values, backgroundColor: BAR_COLOR, borderRadius: 4 }]
     },
     options: {
       maintainAspectRatio: false,
@@ -185,8 +332,19 @@ function applyFilters() {
     }
   });
 
+  currentFiltered = filtered;
   renderBigTable(filtered);
   renderTotalWidget(filtered, periodLabel);
+  renderAverageWidget();
+}
+
+function renderAverageWidget() {
+  const monthlyTotals = new Array(12).fill(0);
+  for (const r of allRows) {
+    if (r.year === currentYear) monthlyTotals[r.month - 1] += r.amount;
+  }
+  const average = computeMonthlyAverage(monthlyTotals);
+  document.getElementById('avg-amount').textContent = formatCurrency(average);
 }
 
 function renderBigTable(filtered) {
@@ -194,12 +352,25 @@ function renderBigTable(filtered) {
   tbody.innerHTML = '';
 
   const bigRows = filtered
-    .filter(r => r.amount > BIG_AMOUNT_THRESHOLD)
+    .filter(r => r.amount > bigAmountThreshold)
     .sort((a, b) => b.amount - a.amount);
 
   for (const { date, category, amount, comment } of bigRows) {
     const tr = document.createElement('tr');
-    [date, category, formatCurrency(amount), comment].forEach(value => {
+
+    const dateTd = document.createElement('td');
+    dateTd.textContent = date;
+    tr.appendChild(dateTd);
+
+    const catTd = document.createElement('td');
+    const catCell = document.createElement('div');
+    catCell.className = 'cat-cell';
+    catCell.innerHTML = categoryIconHTML(category);
+    catCell.append(category);
+    catTd.appendChild(catCell);
+    tr.appendChild(catTd);
+
+    [formatCurrency(amount), comment].forEach(value => {
       const td = document.createElement('td');
       td.textContent = value;
       tr.appendChild(td);
@@ -217,8 +388,21 @@ function renderTotalWidget(filtered, periodLabel) {
   };
 }
 
+function applyThreshold() {
+  const input = document.getElementById('threshold-input');
+  const value = parseFloat(input.value);
+  if (isNaN(value) || value < 0) return;
+  bigAmountThreshold = value;
+  renderBigTable(currentFiltered);
+}
+
+document.getElementById('threshold-apply').onclick = applyThreshold;
+document.getElementById('threshold-input').addEventListener('keydown', evt => {
+  if (evt.key === 'Enter') applyThreshold();
+});
+
 init().catch(err => {
-  document.getElementById('status').textContent = 'Ошибка: ' + err.message;
+  document.getElementById('status').textContent = 'Помилка: ' + err.message;
 });
 </script>
 

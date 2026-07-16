@@ -26,8 +26,11 @@ const CHART_SETTINGS = {
   overageRedThreshold: 20,
 };
 
-const OVERAGE_COLOR_YELLOW = '#f4c430';
-const OVERAGE_COLOR_RED = '#e53935';
+// Цвета из проверенной accessibility-палитры дизайн-системы проекта (status
+// colors) — одинаковые в светлой и тёмной теме, специально отличаются от
+// акцентного цвета и от цветов линий, чтобы не путаться с ними.
+const OVERAGE_COLOR_YELLOW = '#fab219';
+const OVERAGE_COLOR_RED = '#d03b3b';
 
 // Среднее по месяцам, где реально есть данные (сумма > 0).
 function computeMonthlyAverage(monthlyTotals) {

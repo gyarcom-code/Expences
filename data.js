@@ -7,7 +7,59 @@ const HISTORY_CSV_PATH = 'history.csv';
 const MONTH_NAMES = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
 
 function formatCurrency(amount) {
-  return amount.toLocaleString('uk-UA') + ' ₴';
+  return Math.round(amount).toLocaleString('uk-UA', { maximumFractionDigits: 0 }) + ' ₴';
+}
+
+// Дизайн-система проекта: акцентный цвет и цвета линий на графиках сравнения
+// годов (monthly-trends.html, category-trends.html). Светлая/тёмная версия
+// подбираются под текущую системную тему через isDarkMode().
+const THEME_COLORS = {
+  accent: { light: '#0f6e63', dark: '#3ab6a3' },
+  categorical: {
+    light: ['#2a78d6', '#008300', '#e87ba4', '#eda100', '#1baf7a', '#eb6834', '#4a3aa7', '#e34948'],
+    dark: ['#3987e5', '#008300', '#d55181', '#c98500', '#199e70', '#d95926', '#9085e9', '#e66767'],
+  },
+};
+
+function isDarkMode() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+// Иконки категорий (Material Symbols Outlined, шрифт подключён в каждом HTML).
+// DEFAULT_CATEGORY_ICON — универсальная иконка для любой категории, которой
+// нет в этом списке (например, если в форме появится новая категория).
+const CATEGORY_ICONS = {
+  'Продукты': 'shopping_cart',
+  'Здоровье': 'favorite',
+  'Здоровʼя': 'favorite',
+  'Дом/Быт': 'home',
+  'Животные': 'pets',
+  'Фастфуд': 'lunch_dining',
+  'Доставка': 'local_shipping',
+  'Подарки Себе': 'redeem',
+  'Подарки Кому то': 'card_giftcard',
+  'Разное': 'category',
+  'Психотерапевт': 'psychology',
+  'Личное развитие': 'auto_stories',
+  'Уход/Косметика': 'spa',
+  'Алик и фигня': 'person',
+  'Донат': 'volunteer_activism',
+  'Комуналка': 'bolt',
+  'Одежда Обувь': 'checkroom',
+  'Финансирование нищих': 'handshake',
+  'Тачка ТО': 'build',
+  'Тачка Бенз': 'local_gas_station',
+  'Необходимые крупные покупки': 'shopping_bag',
+};
+const DEFAULT_CATEGORY_ICON = 'label';
+
+function getCategoryIconName(category) {
+  return CATEGORY_ICONS[category] || DEFAULT_CATEGORY_ICON;
+}
+
+function categoryIconHTML(category) {
+  const name = getCategoryIconName(category);
+  return `<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 }
 
 function parseCSV(text) {

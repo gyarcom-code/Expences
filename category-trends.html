@@ -2,40 +2,145 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Аналітика за категоріями</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
-  nav { margin-bottom: 15px; }
-  #categories { margin-bottom: 15px; }
-  #categories button { margin: 2px; padding: 6px 12px; cursor: pointer; }
-  #categories button.active { background: #333; color: #fff; }
-  #years-checkboxes { margin-bottom: 20px; }
-  #years-checkboxes label { margin-right: 15px; cursor: pointer; }
-  #status { color: #666; }
+  :root {
+    color-scheme: light dark;
+    --page-bg: #f4f5f3;
+    --surface: #ffffff;
+    --text-primary: #12181a;
+    --text-secondary: #5b6560;
+    --border: rgba(18, 24, 26, .10);
+    --accent: #0f6e63;
+    --accent-contrast: #ffffff;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page-bg: #14171a;
+      --surface: #1c2024;
+      --text-primary: #f2f4f3;
+      --text-secondary: #9aa39d;
+      --border: rgba(255, 255, 255, .10);
+      --accent: #3ab6a3;
+      --accent-contrast: #14171a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    background: var(--page-bg);
+    color: var(--text-primary);
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 16px; }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .tabs a {
+    padding: 10px 14px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tabs a:hover { color: var(--text-primary); }
+  .tabs a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  #status { color: var(--text-secondary); font-size: 14px; }
+
+  #categories { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  #categories button {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 7px 14px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  }
+  #categories button:hover { border-color: var(--accent); }
+  #categories button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+  #categories button .material-symbols-outlined { color: inherit; }
+
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+    color: var(--text-secondary);
+    user-select: none;
+  }
+
+  #years-checkboxes { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 20px; }
+  #years-checkboxes label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+  #years-checkboxes input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; }
+
   #averages-widget { margin-bottom: 20px; }
   #averages-widget > div { margin-bottom: 6px; }
-  #averages-widget .avg-label { color: #666; margin-right: 8px; }
-  .avg-chip { display: inline-block; border: 1px solid; border-radius: 12px; padding: 4px 12px; margin-right: 8px; font-weight: bold; font-size: 14px; }
-  #chart-wrap canvas { height: 500px !important; }
+  #averages-widget > div:last-child { margin-bottom: 0; }
+  #averages-widget .avg-label { color: var(--text-secondary); margin-right: 8px; font-size: 13px; }
+  .avg-chip {
+    display: inline-block;
+    border: 1px solid;
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-right: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #chart-wrap.card { overflow-x: auto; padding: 16px; }
+  #chart-wrap canvas { height: 460px !important; }
+
+  @media (max-width: 640px) {
+    body { padding: 16px 12px 40px; }
+  }
 </style>
 </head>
 <body>
 
 <h1>Аналітика за категоріями</h1>
-<nav><a href="index.html">← На головну</a></nav>
+<nav class="tabs">
+  <a href="index.html">Головна</a>
+  <a href="monthly-trends.html">Динаміка</a>
+  <a href="category-trends.html" class="active">Категорії</a>
+</nav>
 <div id="status">Завантаження даних...</div>
 
 <div id="categories"></div>
 <div id="years-checkboxes"></div>
 <div id="averages-widget"></div>
 
-<div id="chart-wrap"><canvas id="chart"></canvas></div>
+<div id="chart-wrap" class="card"><canvas id="chart"></canvas></div>
 
 <script src="data.js"></script>
 <script src="settings.js"></script>
 <script>
-const COLORS = ['#4a90d9', '#e05656', '#4caf50', '#f0ad4e', '#9b59b6', '#16a2b8', '#e67e22', '#795548'];
+const COLORS = isDarkMode() ? THEME_COLORS.categorical.dark : THEME_COLORS.categorical.light;
 
 let allRows = [];
 let currentCategory = null;
@@ -78,7 +183,9 @@ function renderCategoryButtons(categories) {
   container.innerHTML = '';
   categories.forEach(category => {
     const btn = document.createElement('button');
-    btn.textContent = category;
+    btn.dataset.category = category;
+    btn.innerHTML = categoryIconHTML(category);
+    btn.append(category);
     btn.onclick = () => selectCategory(category);
     container.appendChild(btn);
   });
@@ -87,7 +194,7 @@ function renderCategoryButtons(categories) {
 function selectCategory(category) {
   currentCategory = category;
   document.querySelectorAll('#categories button').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent === category);
+    btn.classList.toggle('active', btn.dataset.category === category);
   });
   renderChart();
 }
