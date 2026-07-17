@@ -95,6 +95,10 @@
   #years-checkboxes label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
   #years-checkboxes input { accent-color: var(--accent); width: 15px; height: 15px; }
 
+  .inflation-toggle { margin-bottom: 20px; }
+  .inflation-toggle label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+  .inflation-toggle input { accent-color: var(--accent); width: 15px; height: 15px; }
+
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; }
 
   #averages-widget { margin-bottom: 20px; }
@@ -133,16 +137,21 @@
 
 <div id="categories"></div>
 <div id="years-checkboxes"></div>
+<div class="inflation-toggle">
+  <label><input type="checkbox" id="inflation-checkbox"> Врахувати параметри інфляції в Україні</label>
+</div>
 <div id="averages-widget"></div>
 
 <div id="chart-wrap" class="card"><canvas id="chart"></canvas></div>
 
 <script src="data.js"></script>
 <script src="settings.js"></script>
+<script src="inflation.js"></script>
 <script>
 const COLORS = isDarkMode() ? THEME_COLORS.categorical.dark : THEME_COLORS.categorical.light;
 
 let allRows = [];
+let inflationData = null;
 let currentCategory = null;
 
 function getQueryCategory() {
@@ -152,7 +161,7 @@ function getQueryCategory() {
 
 async function init() {
   try {
-    allRows = await fetchExpenseRows();
+    [allRows, inflationData] = await Promise.all([fetchExpenseRows(), fetchInflationData()]);
   } catch (err) {
     document.getElementById('status').textContent = 'Помилка: ' + err.message;
     return;
@@ -162,6 +171,8 @@ async function init() {
     return;
   }
   document.getElementById('status').textContent = '';
+
+  document.getElementById('inflation-checkbox').onchange = renderChart;
 
   const totalsByCategory = {};
   for (const r of allRows) {
@@ -223,21 +234,29 @@ let chart = null;
 
 function renderChart() {
   const checkedYears = getCheckedYears();
-  const yearAverages = [];
+  const inflationEnabled = document.getElementById('inflation-checkbox').checked;
+  const yearStats = [];
 
   const datasets = checkedYears.map((year, i) => {
-    const monthlyTotals = new Array(12).fill(0);
+    const nominalTotals = new Array(12).fill(0);
     for (const r of allRows) {
-      if (r.year === year && r.category === currentCategory) monthlyTotals[r.month - 1] += r.amount;
+      if (r.year === year && r.category === currentCategory) nominalTotals[r.month - 1] += r.amount;
     }
+    const adjustedTotals = nominalTotals.map((v, idx) => v > 0 ? adjustForInflation(v, year, idx + 1, inflationData) : 0);
+
     const color = COLORS[i % COLORS.length];
-    const total = monthlyTotals.reduce((sum, v) => sum + v, 0);
-    const average = computeMonthlyAverage(monthlyTotals);
-    yearAverages.push({ year, total, average, color });
-    const pointColors = monthlyTotals.map(v => getOveragePointColor(v, average, color));
+    const nominalTotal = nominalTotals.reduce((sum, v) => sum + v, 0);
+    const adjustedTotal = adjustedTotals.reduce((sum, v) => sum + v, 0);
+    const nominalAverage = computeMonthlyAverage(nominalTotals);
+    const adjustedAverage = computeMonthlyAverage(adjustedTotals);
+    yearStats.push({ year, nominalTotal, adjustedTotal, nominalAverage, adjustedAverage, color });
+
+    const activeTotals = inflationEnabled ? adjustedTotals : nominalTotals;
+    const activeAverage = inflationEnabled ? adjustedAverage : nominalAverage;
+    const pointColors = activeTotals.map(v => getOveragePointColor(v, activeAverage, color));
     return {
       label: String(year),
-      data: monthlyTotals,
+      data: activeTotals,
       borderColor: color,
       backgroundColor: color,
       pointBackgroundColor: pointColors,
@@ -247,7 +266,7 @@ function renderChart() {
     };
   });
 
-  renderAveragesWidget(yearAverages);
+  renderAveragesWidget(yearStats);
 
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('chart'), {
@@ -264,39 +283,30 @@ function renderChart() {
   });
 }
 
-function renderAveragesWidget(yearAverages) {
+function buildChipRow(labelText, yearStats, valueFn) {
+  const row = document.createElement('div');
+  const label = document.createElement('span');
+  label.className = 'avg-label';
+  label.textContent = labelText;
+  row.appendChild(label);
+  yearStats.forEach(s => {
+    const chip = document.createElement('span');
+    chip.className = 'avg-chip';
+    chip.style.borderColor = s.color;
+    chip.style.color = s.color;
+    chip.textContent = `${s.year}: ${formatCurrency(valueFn(s))}`;
+    row.appendChild(chip);
+  });
+  return row;
+}
+
+function renderAveragesWidget(yearStats) {
   const container = document.getElementById('averages-widget');
   container.innerHTML = '';
-
-  const totalRow = document.createElement('div');
-  const totalLabel = document.createElement('span');
-  totalLabel.className = 'avg-label';
-  totalLabel.textContent = 'Сума за рік:';
-  totalRow.appendChild(totalLabel);
-  yearAverages.forEach(({ year, total, color }) => {
-    const chip = document.createElement('span');
-    chip.className = 'avg-chip';
-    chip.style.borderColor = color;
-    chip.style.color = color;
-    chip.textContent = `${year}: ${formatCurrency(total)}`;
-    totalRow.appendChild(chip);
-  });
-  container.appendChild(totalRow);
-
-  const avgRow = document.createElement('div');
-  const avgLabel = document.createElement('span');
-  avgLabel.className = 'avg-label';
-  avgLabel.textContent = 'Середнє за місяць:';
-  avgRow.appendChild(avgLabel);
-  yearAverages.forEach(({ year, average, color }) => {
-    const chip = document.createElement('span');
-    chip.className = 'avg-chip';
-    chip.style.borderColor = color;
-    chip.style.color = color;
-    chip.textContent = `${year}: ${formatCurrency(average)}`;
-    avgRow.appendChild(chip);
-  });
-  container.appendChild(avgRow);
+  container.appendChild(buildChipRow('Сума за рік:', yearStats, s => s.nominalTotal));
+  container.appendChild(buildChipRow('Сума за рік (з урахуванням інфляції):', yearStats, s => s.adjustedTotal));
+  container.appendChild(buildChipRow('Середнє за місяць:', yearStats, s => s.nominalAverage));
+  container.appendChild(buildChipRow('Середнє за місяць (з урахуванням інфляції):', yearStats, s => s.adjustedAverage));
 }
 
 init().catch(err => {
