@@ -64,7 +64,7 @@
   #years-checkboxes label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
   #years-checkboxes input { accent-color: var(--accent); width: 15px; height: 15px; }
 
-  .inflation-toggle { margin-bottom: 20px; }
+  .inflation-toggle { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .inflation-toggle label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); }
   .inflation-toggle input { accent-color: var(--accent); width: 15px; height: 15px; }
 
@@ -105,12 +105,14 @@
 <div id="status">Завантаження даних...</div>
 
 <div id="years-checkboxes"></div>
-<div class="inflation-toggle">
-  <label><input type="checkbox" id="inflation-checkbox"> Врахувати параметри інфляції в Україні</label>
-</div>
 <div id="averages-widget"></div>
 
-<div id="chart-wrap" class="card"><canvas id="chart"></canvas></div>
+<div id="chart-wrap" class="card">
+  <div class="inflation-toggle">
+    <label><input type="checkbox" id="inflation-checkbox"> Врахувати параметри інфляції в Україні</label>
+  </div>
+  <canvas id="chart"></canvas>
+</div>
 
 <script src="data.js"></script>
 <script src="settings.js"></script>
@@ -182,9 +184,11 @@ function renderChart() {
     const adjustedTotals = nominalTotals.map((v, idx) => v > 0 ? adjustForInflation(v, year, idx + 1, inflationData) : 0);
 
     const color = COLORS[i % COLORS.length];
+    const nominalTotal = nominalTotals.reduce((sum, v) => sum + v, 0);
+    const adjustedTotal = adjustedTotals.reduce((sum, v) => sum + v, 0);
     const nominalAverage = computeMonthlyAverage(nominalTotals);
     const adjustedAverage = computeMonthlyAverage(adjustedTotals);
-    yearStats.push({ year, nominalAverage, adjustedAverage, color });
+    yearStats.push({ year, nominalTotal, adjustedTotal, nominalAverage, adjustedAverage, color });
 
     const activeTotals = inflationEnabled ? adjustedTotals : nominalTotals;
     const activeAverage = inflationEnabled ? adjustedAverage : nominalAverage;
@@ -237,6 +241,8 @@ function buildChipRow(labelText, yearStats, valueFn) {
 function renderAveragesWidget(yearStats) {
   const container = document.getElementById('averages-widget');
   container.innerHTML = '';
+  container.appendChild(buildChipRow('Сума за рік:', yearStats, s => s.nominalTotal));
+  container.appendChild(buildChipRow('Сума за рік (з урахуванням інфляції):', yearStats, s => s.adjustedTotal));
   container.appendChild(buildChipRow('Середнє за місяць:', yearStats, s => s.nominalAverage));
   container.appendChild(buildChipRow('Середнє за місяць (з урахуванням інфляції):', yearStats, s => s.adjustedAverage));
 }

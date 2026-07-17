@@ -95,7 +95,7 @@
   #years-checkboxes label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
   #years-checkboxes input { accent-color: var(--accent); width: 15px; height: 15px; }
 
-  .inflation-toggle { margin-bottom: 20px; }
+  .inflation-toggle { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .inflation-toggle label { cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); }
   .inflation-toggle input { accent-color: var(--accent); width: 15px; height: 15px; }
 
@@ -137,12 +137,14 @@
 
 <div id="categories"></div>
 <div id="years-checkboxes"></div>
-<div class="inflation-toggle">
-  <label><input type="checkbox" id="inflation-checkbox"> Врахувати параметри інфляції в Україні</label>
-</div>
 <div id="averages-widget"></div>
 
-<div id="chart-wrap" class="card"><canvas id="chart"></canvas></div>
+<div id="chart-wrap" class="card">
+  <div class="inflation-toggle">
+    <label><input type="checkbox" id="inflation-checkbox"> Врахувати параметри інфляції в Україні</label>
+  </div>
+  <canvas id="chart"></canvas>
+</div>
 
 <script src="data.js"></script>
 <script src="settings.js"></script>
