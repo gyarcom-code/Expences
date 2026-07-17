@@ -276,9 +276,15 @@ function renderChart() {
     data: { labels: MONTH_NAMES, datasets },
     options: {
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         title: { display: true, text: currentCategory },
-        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` } }
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`,
+            labelColor: ctx => ({ borderColor: ctx.dataset.borderColor, backgroundColor: ctx.dataset.borderColor })
+          }
+        }
       },
       scales: { y: { beginAtZero: true, ticks: { callback: value => formatCurrency(value) } } }
     }
